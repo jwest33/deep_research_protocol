@@ -6,7 +6,7 @@ general:
   debug: false
 
 server:
-  secret_key: "91e0cb73ec73163ae3c711b0fea79791fa764709386a8e5cf9cad45a188ba8fb"
+  secret_key: ""
   bind_address: "0.0.0.0:8080"
   base_url: "http://localhost:8888/"
   limiter: false
