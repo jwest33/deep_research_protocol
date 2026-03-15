@@ -21,8 +21,8 @@ search:
     - json
   default_lang: "en"
 
-redis:
-  url: redis://valkey:6379/0
+valkey:
+  url: valkey://valkey:6379/0
 
 ui:
   static_use_hash: true
@@ -31,3 +31,46 @@ ui:
 outgoing:
   request_timeout: 6.0
   max_request_timeout: 15.0
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+    disabled: false
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    disabled: false
+
+  - name: bing
+    engine: bing
+    shortcut: bi
+    disabled: false
+
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+    disabled: false
+
+  - name: github
+    engine: github
+    shortcut: gh
+    disabled: false
+
+  - name: stackoverflow
+    engine: stackexchange
+    shortcut: so
+    categories: it
+    search_site: stackoverflow.com
+    disabled: false
+
+  - name: arxiv
+    engine: arxiv
+    shortcut: arx
+    disabled: false
+
+  - name: google scholar
+    engine: google_scholar
+    shortcut: gs
+    disabled: false

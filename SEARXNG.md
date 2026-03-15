@@ -110,7 +110,7 @@ Key configurations for MCP usage:
 
 - **JSON format enabled**: Required for API access
 - **Rate limiting disabled**: For local development use
-- **Multiple search engines**: Google, DuckDuckGo, Bing, Brave, Wikipedia, GitHub, Stack Overflow, arXiv, Google Scholar
+- **Multiple search engines**: Google, DuckDuckGo, Bing, Wikipedia, GitHub, Stack Overflow, arXiv, Google Scholar
 
 ### Valkey (Redis Fork)
 
@@ -176,7 +176,7 @@ curl "http://localhost:8080/search?q=python+programming&format=json"
 curl "http://localhost:8080/search?q=AI+news&format=json&time_range=week"
 
 # Search specific engines
-curl "http://localhost:8080/search?q=docker+tutorial&format=json&engines=google,stackoverflow"
+curl "http://localhost:8080/search?q=docker+tutorial&format=json&engines=google,stackexchange"
 
 # Search with language
 curl "http://localhost:8080/search?q=machine+learning&format=json&language=en"

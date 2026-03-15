@@ -36,6 +36,7 @@ function Generate-SecretKey {
     
     if (Test-Path $settingsPath) {
         $content = Get-Content $settingsPath -Raw
+        $content = $content -replace 'secret_key: ""', "secret_key: `"$secretKey`""
         $content = $content -replace 'secret_key: "REPLACE_WITH_SECURE_KEY_openssl_rand_hex_32"', "secret_key: `"$secretKey`""
         $content = $content -replace 'secret_key: "[a-f0-9]{64}"', "secret_key: `"$secretKey`""
         Set-Content $settingsPath $content -NoNewline
@@ -53,8 +54,8 @@ function Start-SearXNG {
         docker compose up -d
         Write-ColorOutput Green "Containers started successfully!"
         Write-Output ""
-        Write-Output "SearXNG is now available at: http://localhost:8080"
-        Write-Output "JSON API endpoint: http://localhost:8080/search?q=test&format=json"
+        Write-Output "SearXNG is now available at: http://localhost:8888"
+        Write-Output "JSON API endpoint: http://localhost:8888/search?q=test&format=json"
     } finally {
         Pop-Location
     }
@@ -95,7 +96,7 @@ function Test-SearXNG {
     Write-ColorOutput Yellow "Testing SearXNG JSON API..."
     
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:8080/search?q=test&format=json" -UseBasicParsing
+        $response = Invoke-WebRequest -Uri "http://localhost:8888/search?q=test&format=json" -UseBasicParsing
         $json = $response.Content | ConvertFrom-Json
         
         Write-ColorOutput Green "SUCCESS: SearXNG is responding!"
