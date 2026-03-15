@@ -164,6 +164,7 @@ class ResearchPlan(BaseModel):
     query_intent: str = Field(description="What the user is actually trying to learn/accomplish")
     sub_questions: list[SubQuestion] = Field(
         min_length=2,
+        max_length=10,
         description="Decomposed questions that together answer the original query"
     )
     minimum_searches_recommended: int = Field(
@@ -297,10 +298,12 @@ class SynthesisAction(BaseModel):
 
     # Coverage tracking
     subquestions_addressed: list[int] = Field(
+        max_length=10,
         description="Indices of sub-questions this response covers"
     )
     subquestions_not_addressed: list[int] = Field(
         default_factory=list,
+        max_length=10,
         description="Indices of sub-questions we couldn't answer"
     )
 
@@ -312,6 +315,7 @@ class SynthesisAction(BaseModel):
     # Gaps and limitations
     known_gaps: list[str] = Field(
         default_factory=list,
+        max_length=5,
         description="Known gaps or limitations in this response"
     )
 
@@ -656,16 +660,28 @@ class ResearchMemory:
 # Web Search
 # =============================================================================
 
-def search_web(config: DeepResearchConfig, query: str, memory: ResearchMemory) -> list[dict]:
-    """Execute a web search via SearXNG with caching."""
+def search_web(config: DeepResearchConfig, query: str, memory: ResearchMemory, time_range: str = "month") -> list[dict]:
+    """Execute a web search via SearXNG with caching.
+
+    Args:
+        time_range: Filter results by recency. Options: "day", "week", "month", "year", or "" for no filter.
+    """
     cached = memory.get_cached_search(query)
     if cached:
         return cached
 
     try:
+        params = {
+            "q": query,
+            "format": "json",
+            "categories": "general,news",
+        }
+        if time_range:
+            params["time_range"] = time_range
+
         resp = requests.get(
             f"{config.searxng_url}/search",
-            params={"q": query, "format": "json"},
+            params=params,
             timeout=15
         )
         resp.raise_for_status()
@@ -787,6 +803,21 @@ CURRENT TIMESTAMP: {timestamp}
 ## RECENT SEARCH RESULTS
 
 {recent_results}
+
+## RESPONSE FORMAT
+
+You MUST respond with valid JSON matching this exact structure:
+{{
+  "thinking": "Your reasoning about current state and next steps (at least 20 characters)",
+  "action": {{
+    "action": "search",
+    "query": "your search query",
+    "targets_subquestion": 0,
+    "reasoning": "why this search helps"
+  }}
+}}
+
+Valid action types: "search", "parallel_search", "remember", "recall", "progress_report", "synthesize".
 
 What action will you take next?"""
 
@@ -923,6 +954,7 @@ Be honest and critical. If the response is inadequate, say so."""
             elif isinstance(action, SynthesisAction):
                 if not state.can_synthesize():
                     print(f"[Synthesis blocked: need {state.min_searches - state.searches_completed} more searches]")
+                    messages.append({"role": "assistant", "content": "[Attempted synthesis too early]"})
                     messages.append({
                         "role": "user",
                         "content": f"You cannot synthesize yet. You need at least {state.min_searches} searches (currently {state.searches_completed}). Continue researching."
@@ -941,6 +973,7 @@ Be honest and critical. If the response is inadequate, say so."""
                     if critique and critique.recommended_action == "continue_research":
                         print(f"[Self-critique rejected response: {critique.critique_notes}]")
                         state.phase = ResearchPhase.RESEARCHING
+                        messages.append({"role": "assistant", "content": f"[Synthesis rejected: {critique.critique_notes}]"})
                         messages.append({
                             "role": "user",
                             "content": f"Your response was critiqued and needs improvement: {critique.critique_notes}\n\nContinue researching to address these issues."
@@ -1002,7 +1035,10 @@ Be honest and critical. If the response is inadequate, say so."""
             recent_results="No searches yet."
         ) + facts_context
 
-        return [{"role": "system", "content": system_prompt}]
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Begin researching the following query: {state.plan.original_query}\n\nChoose your first action."}
+        ]
 
     def _get_next_action(self, state: ResearchState, messages: list[dict]) -> Optional[ResearchResponse]:
         """Get the next action from the LLM."""
@@ -1201,6 +1237,9 @@ Be honest and critical. If the response is inadequate, say so."""
 Based on all the research conducted, provide your best answer to the original query.
 Even if incomplete, synthesize what you have learned."""
 
+        # Ensure proper role alternation before appending
+        if messages and messages[-1]["role"] == "user":
+            messages.append({"role": "assistant", "content": "[Max iterations reached, preparing synthesis]"})
         messages.append({"role": "user", "content": prompt})
 
         try:
@@ -1226,10 +1265,16 @@ Even if incomplete, synthesize what you have learned."""
             api_key="not-needed"
         )
 
+        # Ensure proper alternation for fallback messages
+        fallback_messages = list(messages)
+        if fallback_messages and fallback_messages[-1]["role"] == "user":
+            fallback_messages.append({"role": "assistant", "content": "[Attempting final synthesis]"})
+        fallback_messages.append({"role": "user", "content": "Provide your final answer now, summarizing what you learned."})
+
         try:
             response = base_client.chat.completions.create(
                 model="local-model",
-                messages=messages + [{"role": "user", "content": "Provide your final answer now, summarizing what you learned."}],
+                messages=fallback_messages,
                 temperature=0.7,
                 max_tokens=2000
             )
